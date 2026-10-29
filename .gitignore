@@ -19,3 +19,5 @@ bot.db
 .vscode/
 .idea/
 *.swp
+
+# .vkbottle/
