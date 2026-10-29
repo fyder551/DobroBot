@@ -20,4 +20,4 @@ bot.db
 .idea/
 *.swp
 
-# .vkbottle/
+.vkbottle/
