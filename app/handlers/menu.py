@@ -9,13 +9,13 @@ from app.database.crud import (
     get_approved_events,
     get_user_responses,
     get_event_by_id,
+    get_session
 )
 from app.keyboards.main_menu import get_main_menu_keyboard
 from app.states import SettingsState, SearchState
 from app.utils.validators import validate_full_name
 from datetime import datetime
 from app.database.models import Response
-from app.database.crud import get_session
 
 
 def get_profile_keyboard() -> str:
@@ -42,7 +42,6 @@ async def profile_handler(message: Message):
     role_ru = {
         "volunteer": "Волонтёр",
         "organizer": "Организатор",
-        "admin": "Администратор",
     }.get(user.role, "Волонтёр")
 
     await message.answer(
@@ -165,7 +164,7 @@ async def show_event_card(
         if current_responses >= int(event.max_volunteers):
             is_full = True
 
-    from app.database.crud import get_session
+    
     from app.database.models import User
 
     session = get_session()
@@ -265,25 +264,28 @@ async def show_event_card(
         )
 
 
-@bot.on.message(text=["🔍 Найти мероприятие", "Найти мероприятие"])
+@bot.on.message(regex=r"(?i).*найти мероприятие.*")
 async def search_handler(message: Message):
-    await bot.state_dispenser.delete(message.peer_id)
-    user = get_user_by_vk_id(message.from_id)
-    role = user.role if user else "volunteer"
+    try:
+        await bot.state_dispenser.delete(message.peer_id)
+        user = get_user_by_vk_id(message.from_id)
+        role = user.role if user else "volunteer"
 
-    events = get_approved_events()
-    if not events:
-        await message.answer(
-            "🔍 Пока нет активных мероприятий.", keyboard=get_main_menu_keyboard(role)
+        events = get_approved_events()
+        if not events:
+            await message.answer("🔍 Пока нет активных мероприятий.", keyboard=get_main_menu_keyboard(role))
+            return
+
+        event_ids = [e.id for e in events]
+        await bot.state_dispenser.set(
+            message.peer_id, SearchState.BROWSING, event_ids=event_ids, index=0
         )
-        return
-
-    event_ids = [e.id for e in events]
-    await bot.state_dispenser.set(
-        message.peer_id, SearchState.BROWSING, event_ids=event_ids, index=0
-    )
-
-    await show_event_card(message, events[0], 0, len(events), user=user, edit=False)
+        await show_event_card(message, events[0], 0, len(events), user=user, edit=False)
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc() # Покажет ошибку в терминале
+        await message.answer(f"❌ Ошибка при поиске: {e}")
 
 
 @bot.on.raw_event(

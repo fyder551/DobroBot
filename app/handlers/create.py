@@ -4,7 +4,6 @@ from vkbottle import Keyboard, Text, KeyboardButtonColor
 from vkbottle.bot import Message
 
 from app.bot_instance import bot
-from app.config import ADMIN_ID
 from app.database.crud import get_user_by_vk_id, create_event
 from app.keyboards.main_menu import get_main_menu_keyboard
 from app.states import CreateEventState
@@ -43,9 +42,9 @@ async def start_create(message: Message):
         await message.answer("Сначала напиши /start")
         return
 
-    if user.role not in ("organizer", "admin"):
+    if user.role != "organizer":
         await message.answer(
-            "❌ Только организаторы и админы могут создавать мероприятия.\n"
+            "❌ Только организаторы могут создавать мероприятия.\n"
             "Получи роль в настройках.",
             keyboard=get_main_menu_keyboard(user.role),
         )
@@ -123,25 +122,29 @@ async def process_time(message: Message):
         await message.answer("❌ Пожалуйста, отправь время текстом:")
         return
     text = message.text.strip()
-    if not re.match(r"^\d{2}:\d{2}$", text):
-        await message.answer(
-            "❌ Неверный формат. Введи время ровно как ЧЧ:ММ (например, 15:00):"
-        )
+    
+    # Теперь принимаем и "8:00", и "08:00"
+    if not re.match(r"^\d{1,2}:\d{2}$", text):
+        await message.answer("❌ Неверный формат. Введи время как ЧЧ:ММ (например, 15:00 или 8:00):")
         return
     try:
+        
         event_time = datetime.strptime(text, "%H:%M").time()
+        
+        time_str = event_time.strftime("%H:%M")
     except ValueError:
         await message.answer("❌ Такого времени не существует. Введи корректное время:")
         return
+        
     state = await bot.state_dispenser.get(message.peer_id)
     payload = state.payload
     event_date = datetime.strptime(payload["date"], "%d.%m.%Y").date()
     if event_date == datetime.now().date() and event_time <= datetime.now().time():
         await message.answer("❌ Время не может быть в прошлом. Введи будущее время:")
         return
-    await bot.state_dispenser.set(
-        message.peer_id, CreateEventState.WAITING_FOR_LOCATION, **payload, time=text
-    )
+        
+    
+    await bot.state_dispenser.set(message.peer_id, CreateEventState.WAITING_FOR_LOCATION, **payload, time=time_str)
     await message.answer("📝 Где будет проходить мероприятие? (Введи место):")
 
 
@@ -406,22 +409,10 @@ async def publish_event(message: Message):
         keyboard=get_main_menu_keyboard(user.role),
     )
 
-    # Уведомление админу
-    if user.vk_id != ADMIN_ID:
-        try:
-            await bot.api.messages.send(
-                user_id=ADMIN_ID,
-                message=(
-                    f"🔔 Новое мероприятие на модерацию!\n\n"
-                    f"📌 {event.title}\n"
-                    f"📅 {payload.get('date')} в {payload.get('time')}\n"
-                    f"📍 {payload.get('location')}\n\n"
-                    f"Чтобы проверить, нажми кнопку «🔔 Модерация» в главном меню."
-                ),
-                random_id=0,
-            )
-        except Exception as e:
-            print(f"⚠️ Не удалось отправить уведомление админу: {e}")
+    await message.answer(
+        f"✅ Мероприятие «{event.title}» успешно создано!",
+        keyboard=get_main_menu_keyboard(user.role),
+    )
 
 
 @bot.on.message(

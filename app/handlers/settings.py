@@ -2,7 +2,7 @@ from vkbottle import Keyboard, Text, KeyboardButtonColor
 from vkbottle.bot import Message
 
 from app.bot_instance import bot
-from app.config import ADMIN_CODE, ORGANIZER_CODE
+from app.config import ORGANIZER_CODE
 from app.database.crud import (
     get_user_by_vk_id,
     change_role,
@@ -34,11 +34,9 @@ def get_role_choice_keyboard(role: str) -> str:
     elif role == "organizer":
         # Организатор может стать волонтёром (без кода) или админом (с кодом)
         kb.add(Text("👤 Стать волонтёром"), color=KeyboardButtonColor.SECONDARY)
-        kb.add(Text("👑 Стать админом"), color=KeyboardButtonColor.PRIMARY)
     else:
         # Волонтёр может стать организатором или админом только по коду
         kb.add(Text("🎯 Стать организатором"), color=KeyboardButtonColor.SECONDARY)
-        kb.add(Text("👑 Стать админом"), color=KeyboardButtonColor.PRIMARY)
     kb.row()
     kb.add(Text("⬅️ Назад"), color=KeyboardButtonColor.SECONDARY)
     return kb.get_json()
@@ -145,12 +143,12 @@ async def process_role_code(message: Message):
         target_role = state_peer.payload.get("target_role", "organizer")
 
     # Определяем, какой код нужен
-    expected_code = ORGANIZER_CODE if target_role == "organizer" else ADMIN_CODE
+    expected_code = ORGANIZER_CODE
 
     if text == expected_code:
         change_role(message.from_id, target_role)
         await bot.state_dispenser.delete(message.peer_id)
-        role_ru = "Организатор" if target_role == "organizer" else "Администратор"
+        role_ru = "Организатор"
         await message.answer(
             f"✅ Готово! Ты теперь {role_ru}.",
             keyboard=get_main_menu_keyboard(target_role),
