@@ -6,14 +6,11 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# 1. МАРШРУТ ДЛЯ ОТДАЧИ HTML СТРАНИЦЫ
 @app.route('/')
 def index():
-    # Ищем папку miniapp на уровень выше (в корне проекта)
-    miniapp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'miniapp')
-    return send_from_directory(miniapp_dir, 'index.html')
+    # Теперь папка miniapp лежит прямо рядом с api.py
+    return send_from_directory(os.path.join(os.path.dirname(__file__), 'miniapp'), 'index.html')
 
-# 2. МАРШРУТ ДЛЯ API (СПИСОК УЧАСТНИКОВ)
 @app.route('/api/event/<int:event_id>/users')
 def get_users(event_id):
     event = get_event_by_id(event_id)
@@ -35,6 +32,6 @@ def get_users(event_id):
     })
 
 if __name__ == '__main__':
-    import os
+    # Render сам передаст нужный порт в переменную PORT
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
