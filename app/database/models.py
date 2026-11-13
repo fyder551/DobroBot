@@ -59,6 +59,7 @@ class Event(Base):
 
     end_time = Column(Time, nullable=True)  # <-- Время окончания
     chat_link = Column(String(300), nullable=True)  # <-- Ссылка на чат/форму
+    vk_post_cmid = Column(Integer, nullable=True) # ID сообщения в чате для счетчика
     bonus_info = Column(String(300), nullable=True)  # <-- Плюшки
 
     location = Column(String(200), nullable=False)

@@ -5,6 +5,7 @@ load_dotenv()
 
 VK_TOKEN = os.getenv("VK_TOKEN")
 GROUP_ID = int(os.getenv("GROUP_ID", "0"))
+CHAT_ID = int(os.getenv("CHAT_ID", "0"))
 ORGANIZER_CODE = os.getenv("ORGANIZER_CODE", "")
 
 if not VK_TOKEN or VK_TOKEN == "placeholder":
