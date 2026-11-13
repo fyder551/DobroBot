@@ -1,7 +1,7 @@
 import re
 from datetime import datetime
 
-from vkbottle import Keyboard, Text, KeyboardButtonColor, Callback
+from vkbottle import Keyboard, Text, KeyboardButtonColor, Callback, OpenLink
 from vkbottle.bot import Message
 from app.database.crud import get_session
 from app.database.models import Event
@@ -9,7 +9,7 @@ from app.database.models import Event
 from app.bot_instance import bot
 from app.database.crud import get_user_by_vk_id, create_event,update_event_cmid
 from app.keyboards.main_menu import get_cancel_keyboard, get_skip_keyboard, get_main_menu_keyboard
-from app.states import CreateEventState
+from app.states import CreateEventState,AnnouncementState
 from app.config import CHAT_ID, GROUP_ID
 import random
 import asyncio
@@ -18,18 +18,101 @@ import asyncio
 # --- СТАРТ СОЗДАНИЯ ---
 @bot.on.message(regex=r"(?i).*создать.*")
 async def start_create(message: Message):
-    if message.peer_id > 2000000000:
-        return
+    if message.peer_id > 2000000000: return
+    
     await bot.state_dispenser.delete(message.peer_id) 
-    await bot.state_dispenser.set(message.peer_id, CreateEventState.TITLE)
+    await bot.state_dispenser.set(message.peer_id, CreateEventState.CHOOSING_TYPE)
     
-    kb = Keyboard(one_time=False, inline=False).add(Text("❗Нужны волонтеры❗"), color=KeyboardButtonColor.PRIMARY)
-    kb.row().add(Text("❌ Отмена"), color=KeyboardButtonColor.NEGATIVE)
-    
-    await message.answer(
-        "📝 Шаг 1/9. Введи название мероприятия (или нажми на кнопку ниже):",
-        keyboard=kb.get_json()
+    kb = (
+        Keyboard(one_time=False, inline=False)
+        .add(Text("📅 Мероприятие"), color=KeyboardButtonColor.PRIMARY)
+        .add(Text("📢 Объявление"), color=KeyboardButtonColor.SECONDARY)
+        .row().add(Text("❌ Отмена"), color=KeyboardButtonColor.NEGATIVE)
     )
+    await message.answer("Что ты хочешь создать?", keyboard=kb.get_json())
+
+
+# --- ВЫБОР: МЕРОПРИЯТИЕ ИЛИ ОБЪЯВЛЕНИЕ ---
+@bot.on.message(state=CreateEventState.CHOOSING_TYPE, text=["📅 Мероприятие"])
+async def choice_event(message: Message):
+    await bot.state_dispenser.set(message.peer_id, CreateEventState.TITLE)
+    kb = Keyboard(one_time=False, inline=False).add(Text("❗Нужны волонтеры❗"), color=KeyboardButtonColor.PRIMARY).row().add(Text("❌ Отмена"), color=KeyboardButtonColor.NEGATIVE)
+    await message.answer("📝 Шаг 1/9. Введи название мероприятия:", keyboard=kb.get_json())
+
+@bot.on.message(state=CreateEventState.CHOOSING_TYPE, text=["📢 Объявление"])
+async def choice_announcement(message: Message):
+    await bot.state_dispenser.set(message.peer_id, AnnouncementState.PHOTO)
+    await message.answer(
+        "Прикрепи фото к объявлению (от 1 до 5). Если фото не нужно, напиши «Пропустить».",
+        keyboard=get_skip_keyboard()
+    )
+
+# --- ОБЪЯВЛЕНИЕ: ФОТО ---
+@bot.on.message(state=AnnouncementState.PHOTO)
+async def process_ann_photo(message: Message):
+    photo_attachment = None
+    if message.text and "пропустить" in message.text.lower():
+        pass 
+    elif message.attachments:
+        photos = []
+        for att in message.attachments:
+            if att.photo:
+                access_key = getattr(att.photo, 'access_key', '')
+                photo_str = f"photo{att.photo.owner_id}_{att.photo.id}" + (f"_{access_key}" if access_key else "")
+                photos.append(photo_str)
+        if not photos:
+            await message.answer("❌ В прикрепленных файлах нет фотографий. Отправь фото или напиши «Пропустить».")
+            return
+        if len(photos) > 5:
+            await message.answer("❌ Можно прикрепить не более 5 фотографий.")
+            return
+        photo_attachment = ",".join(photos)
+    else:
+        await message.answer("❌ Ты не прикрепил фото. Попробуй снова или напиши «Пропустить».")
+        return
+            
+    await bot.state_dispenser.set(message.peer_id, AnnouncementState.TITLE, photo=photo_attachment)
+    await message.answer("Напиши заголовок объявления (например: 🔥 Хочешь стать волонтером?):")
+
+# --- ОБЪЯВЛЕНИЕ: ЗАГОЛОВОК ---
+@bot.on.message(state=AnnouncementState.TITLE)
+async def process_ann_title(message: Message):
+    if not message.text:
+        await message.answer("Пожалуйста, отправь текст заголовка.")
+        return
+        
+    title = message.text.strip()
+    state = await bot.state_dispenser.get(message.peer_id)
+    p = state.payload or {}
+    
+    await bot.state_dispenser.set(message.peer_id, AnnouncementState.TEXT, photo=p.get("photo"), title=title)
+    await message.answer("Теперь напиши основной текст объявления (можешь использовать переносы строк и эмодзи):")
+
+# --- ОБЪЯВЛЕНИЕ: ТЕКСТ ---
+@bot.on.message(state=AnnouncementState.TEXT)
+async def process_ann_text(message: Message):
+    if not message.text:
+        await message.answer("Пожалуйста, отправь текст объявления.")
+        return
+        
+    text = message.text.strip()
+    state = await bot.state_dispenser.get(message.peer_id)
+    p = state.payload or {}
+    
+    await bot.state_dispenser.set(message.peer_id, AnnouncementState.PREVIEW, photo=p.get("photo"), title=p.get("title"), text=text)
+    
+    # Предпросмотр (без тегов, чтобы выглядело чисто)
+    preview_text = f"📋 <b>Предпросмотр объявления:</b>\n\n<b>{p.get('title')}</b>\n\n{text}"
+    if p.get("photo"):
+        preview_text += "\n\n(С фотографией)"
+        
+    kb = (
+        Keyboard(one_time=False, inline=False)
+        .add(Text("✅ Опубликовать"), color=KeyboardButtonColor.POSITIVE)
+        .add(Text("❌ Отмена"), color=KeyboardButtonColor.NEGATIVE)
+    )
+    # Отправляем предпросмотр с parse_mode="HTML"
+    await message.answer(preview_text, keyboard=kb.get_json(), parse_mode="HTML")
 
 @bot.on.message(regex=r"(?i).*отмена.*")
 async def cancel_create(message: Message):
@@ -317,12 +400,19 @@ async def process_publish(message: Message):
         )
         if event.bonus_info: chat_text += f"\n\n🎁 Бонусы: {event.bonus_info}"
         if event.chat_link: chat_text += f"\n🔗 Чат: {event.chat_link}"
-        chat_text += f"\n\n📊 Записались: 0 / {event.max_volunteers}"
 
-        # ОДНА КНОПКА
+        # Твоя ссылка от ngrok (без слэша на конце) ДВЕ КНОПКИ: ОТКЛИК И СЧЕТЧИК
+        NGROK_URL = "https://brought-porous-cheek.ngrok-free.dev"
+        
+                # Формируем ссылку
+        app_link = f"https://vk.com/app54895625?event_id={event.id}"
+
+        # ДВЕ КНОПКИ: ОТКЛИК И СПИСОК
         kb = (
             Keyboard(inline=True)
             .add(Callback("✅ Я пойду", payload={"cmd": "join_chat", "id": str(event.id)}), color=KeyboardButtonColor.POSITIVE)
+            # ВОТ ЗДЕСЬ ИСПОЛЬЗУЕМ link, А НЕ url!
+            .add(OpenLink(app_link, label=f"👥 Список (0/{event.max_volunteers})"), color=KeyboardButtonColor.SECONDARY)
         )
 
         # Отправляем в чат
@@ -351,3 +441,33 @@ async def process_cancel(message: Message):
     if message.peer_id > 2000000000:
         return
     await cancel_create(message)
+
+
+@bot.on.message(state=AnnouncementState.PREVIEW, text=["✅ Опубликовать"])
+async def publish_announcement(message: Message):
+    state = await bot.state_dispenser.get(message.peer_id)
+    p = state.payload or {}
+    title = p.get("title")
+    text = p.get("text")
+    photo = p.get("photo")
+    
+    # Убираем HTML-теги, делаем заголовок ярким с помощью эмодзи и КАПСА
+    final_message = f"🔥 {title.upper()} 🔥\n\n{text}"
+    
+    try:
+        await bot.api.messages.send(
+            peer_id=CHAT_ID,
+            message=final_message,
+            attachment=photo,
+            random_id=random.randint(1, 1000000)
+        )
+        await message.answer("✅ Объявление успешно опубликовано в чате!", keyboard=get_main_menu_keyboard())
+    except Exception as e:
+        print(f"⚠️ Ошибка: {e}")
+        await message.answer(f"❌ Ошибка при публикации: {e}", keyboard=get_main_menu_keyboard())
+        
+    await bot.state_dispenser.delete(message.peer_id)
+@bot.on.message(state=AnnouncementState.PREVIEW, text=["❌ Отмена"])
+async def cancel_announcement(message: Message):
+    await bot.state_dispenser.delete(message.peer_id)
+    await message.answer("❌ Создание объявления отменено.", keyboard=get_main_menu_keyboard())

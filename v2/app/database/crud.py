@@ -17,7 +17,7 @@ def get_user_by_vk_id(vk_id: int) -> Optional[User]:
         session.close()
 
 
-def get_or_create_user(vk_id: int, first_name: str, gender: str) -> User:
+def get_or_create_user(vk_id: int, first_name: str, last_name: str, gender: str) -> User:
     """Возвращает пользователя из БД или создает нового, если его нет."""
     session = get_session()
     try:
@@ -26,6 +26,7 @@ def get_or_create_user(vk_id: int, first_name: str, gender: str) -> User:
             user = User(
                 vk_id=vk_id,
                 first_name=first_name,
+                last_name=last_name,
                 gender=gender
             )
             session.add(user)

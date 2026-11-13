@@ -9,6 +9,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     vk_id = Column(Integer, unique=True, nullable=False, index=True)
     first_name = Column(String(100), nullable=True)
+    last_name = Column(String(100), nullable=True)
     gender = Column(String(10), nullable=True) # 'male' / 'female'
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

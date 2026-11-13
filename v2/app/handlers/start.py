@@ -27,23 +27,33 @@ async def check_and_greet(message: Message):
     except Exception as e:
         print(f"⚠️ Ошибка при проверке подписки: {e}")
 
-    # 2. ПОЛУЧАЕМ ДАННЫЕ ИЗ ВК
+     # 2. ПОЛУЧАЕМ ДАННЫЕ ИЗ ВК
     try:
         users_info = await bot.api.users.get(user_ids=user_id)
         if users_info:
             vk_user = users_info[0]
             first_name = vk_user.first_name
+            last_name = vk_user.last_name  # <-- ДОБАВИЛИ ПОЛУЧЕНИЕ ФАМИЛИИ
+            
+            # Определяем пол
             gender = "male" if vk_user.sex == 2 else ("female" if vk_user.sex == 1 else "unknown")
         else:
             first_name = "друг"
+            last_name = "" # <-- ДОБАВИЛИ ЗАГЛУШКУ
             gender = "unknown"
     except Exception as e:
         print(f"⚠️ Ошибка при получении данных: {e}")
         first_name = "друг"
+        last_name = ""
         gender = "unknown"
 
-    # 3. СОХРАНЯЕМ В БАЗУ
-    get_or_create_user(vk_id=user_id, first_name=first_name, gender=gender)
+    # 3. СОХРАНЯЕМ В БАЗУ (передаем last_name)
+    get_or_create_user(
+        vk_id=user_id, 
+        first_name=first_name, 
+        last_name=last_name, # <-- ДОБАВИЛИ ПЕРЕДАЧУ
+        gender=gender
+    )
 
     # 4. ПРИВЕТСТВИЕ (Очищаем клавиатуру)
     await message.answer(
