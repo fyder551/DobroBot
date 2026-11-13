@@ -1,4 +1,5 @@
 from vkbottle.bot import Message
+from app.config import GROUP_ID
 
 from app.bot_instance import bot
 from app.database.crud import (
@@ -18,6 +19,29 @@ def get_short_name(full_name: str) -> str:
 
 @bot.on.message(text=["/start", "Начать", "начать", "start", "Start", "Старт"])
 async def start_handler(message: Message):
+    # --- ПРОВЕРКА ПОДПИСКИ ---
+    try:
+        # Делаем запрос к ВК API
+        is_member = await bot.api.groups.is_member(
+            group_id=GROUP_ID, 
+            user_id=message.from_id
+        )
+        
+        # ВЫВОДИМ В ТЕРМИНАЛ, ЧТОБЫ УВИДЕТЬ РЕЗУЛЬТАТ (1 или 0)
+        print(f"🔍 Проверка подписки для {message.from_id}: результат = {is_member}")
+
+        # Если ВК вернул 0 (не подписан)
+        if is_member == 0:
+            await message.answer(
+                "❌ Чтобы пользоваться ботом, нужно сначала вступить в наше сообщество!\n\n"
+                "👉 Ссылка на группу: https://vk.com/club242178159"
+            )
+            return  # Жестко прерываем, дальше не пускаем
+            
+    except Exception as e:
+        # Если произошла ошибка API, мы пишем её в консоль
+        print(f"⚠️ ОШИБКА ПРИ ПРОВЕРКЕ ПОДПИСКИ: {e}")
+        # И на всякий случай пропускаем (или можешь поставить return, чтобы блокировать всех при ошибке)
     await bot.state_dispenser.delete(message.peer_id)
     """Обработчик команды /start."""
     user = get_user_by_vk_id(message.from_id)

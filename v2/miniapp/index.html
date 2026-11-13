@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Список участников</title>
+    <!-- Подключаем VKUI (стили ВК) -->
+    <script src="https://unpkg.com/@vkontakte/vkui@5/dist/index.umd.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #19191a; color: white; padding: 20px; margin: 0; }
+        .user-card { display: flex; align-items: center; padding: 12px; background: #232324; margin-bottom: 8px; border-radius: 12px; }
+        .avatar { width: 48px; height: 48px; border-radius: 50%; background: #555; margin-right: 16px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .title { font-size: 20px; font-weight: bold; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="title" id="event-title">Загрузка...</div>
+    <div id="users-list"></div>
+
+    <script>
+        // Получаем event_id из параметров URL (ВК передает его автоматически)
+        const urlParams = new URLSearchParams(window.location.search);
+        const eventId = urlParams.get('event_id');
+
+        if (!eventId) {
+            document.getElementById('event-title').innerText = "Ошибка: ID мероприятия не найден";
+        } else {
+            // Запрашиваем данные у нашего Python API
+            fetch(`/api/event/${eventId}/users`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('event-title').innerText = data.title;
+                    const list = document.getElementById('users-list');
+                    
+                    if (data.users.length === 0) {
+                        list.innerHTML = "<p>Пока никто не записался 😢</p>";
+                        return;
+                    }
+
+                    data.users.forEach((user, index) => {
+                        list.innerHTML += `
+                            <div class="user-card">
+                                <div class="avatar">${user.name[0]}</div>
+                                <div>${index + 1}. ${user.name}</div>
+                            </div>
+                        `;
+                    });
+                })
+                .catch(err => {
+                    document.getElementById('event-title').innerText = "Ошибка загрузки данных";
+                    console.error(err);
+                });
+        }
+    </script>
+</body>
+</html>

@@ -1,13 +1,14 @@
 from datetime import datetime
 
-from vkbottle import Keyboard, Text, KeyboardButtonColor
 from vkbottle.bot import Message
+from app.config import CHAT_ID
+from vkbottle import Keyboard, Callback, KeyboardButtonColor,Text
 
 from app.bot_instance import bot
-from app.config import ADMIN_ID
-from app.database.crud import get_user_by_vk_id, create_event
+from app.database.crud import get_user_by_vk_id, create_event, get_session
 from app.keyboards.main_menu import get_main_menu_keyboard
 from app.states import CreateEventState
+from app.database.models import Event
 import re
 
 
@@ -43,9 +44,9 @@ async def start_create(message: Message):
         await message.answer("Сначала напиши /start")
         return
 
-    if user.role not in ("organizer", "admin"):
+    if user.role != "organizer":
         await message.answer(
-            "❌ Только организаторы и админы могут создавать мероприятия.\n"
+            "❌ Только организаторы могут создавать мероприятия.\n"
             "Получи роль в настройках.",
             keyboard=get_main_menu_keyboard(user.role),
         )
@@ -123,25 +124,29 @@ async def process_time(message: Message):
         await message.answer("❌ Пожалуйста, отправь время текстом:")
         return
     text = message.text.strip()
-    if not re.match(r"^\d{2}:\d{2}$", text):
-        await message.answer(
-            "❌ Неверный формат. Введи время ровно как ЧЧ:ММ (например, 15:00):"
-        )
+    
+    # Теперь принимаем и "8:00", и "08:00"
+    if not re.match(r"^\d{1,2}:\d{2}$", text):
+        await message.answer("❌ Неверный формат. Введи время как ЧЧ:ММ (например, 15:00 или 8:00):")
         return
     try:
+        
         event_time = datetime.strptime(text, "%H:%M").time()
+        
+        time_str = event_time.strftime("%H:%M")
     except ValueError:
         await message.answer("❌ Такого времени не существует. Введи корректное время:")
         return
+        
     state = await bot.state_dispenser.get(message.peer_id)
     payload = state.payload
     event_date = datetime.strptime(payload["date"], "%d.%m.%Y").date()
     if event_date == datetime.now().date() and event_time <= datetime.now().time():
         await message.answer("❌ Время не может быть в прошлом. Введи будущее время:")
         return
-    await bot.state_dispenser.set(
-        message.peer_id, CreateEventState.WAITING_FOR_LOCATION, **payload, time=text
-    )
+        
+    
+    await bot.state_dispenser.set(message.peer_id, CreateEventState.WAITING_FOR_LOCATION, **payload, time=time_str)
     await message.answer("📝 Где будет проходить мероприятие? (Введи место):")
 
 
@@ -400,28 +405,50 @@ async def publish_event(message: Message):
 
     await bot.state_dispenser.delete(message.peer_id)
 
+    # 1. Сообщаем организатору в ЛС
     await message.answer(
-        f"✅ Мероприятие «{event.title}» отправлено на модерацию.\n"
-        f"После проверки админом оно появится в поиске.",
+        f"✅ Мероприятие «{event.title}» успешно создано и отправлено в чат!",
         keyboard=get_main_menu_keyboard(user.role),
     )
+    # 2. Отправляем в ОБЩИЙ ЧАТ
+    chat_text = (
+        f"📢 <b>НОВОЕ МЕРОПРИЯТИЕ!</b>\n\n"
+        f"📌 {event.title}\n"
+        f"📅 {event.date.strftime('%d.%m.%Y')} в {event.time.strftime('%H:%M')}\n"
+        f"📍 {event.location}\n"
+        f"📝 {event.description}\n"
+        f"👥 Нужно: {event.max_volunteers} чел.\n"
+        f"📞 Связь: {event.contacts}"
+    )
+    
+    # Две кнопки
+    kb_chat = (
+        Keyboard(inline=True)
+        .add(Callback("✅ Я пойду", payload={"cmd": "join_chat", "id": str(event.id)}), color=KeyboardButtonColor.POSITIVE)
+        .add(Callback(f"👥 0/{event.max_volunteers}", payload={"cmd": "view_list", "id": str(event.id)}), color=KeyboardButtonColor.SECONDARY)
+    )
 
-    # Уведомление админу
-    if user.vk_id != ADMIN_ID:
-        try:
-            await bot.api.messages.send(
-                user_id=ADMIN_ID,
-                message=(
-                    f"🔔 Новое мероприятие на модерацию!\n\n"
-                    f"📌 {event.title}\n"
-                    f"📅 {payload.get('date')} в {payload.get('time')}\n"
-                    f"📍 {payload.get('location')}\n\n"
-                    f"Чтобы проверить, нажми кнопку «🔔 Модерация» в главном меню."
-                ),
-                random_id=0,
-            )
-        except Exception as e:
-            print(f"⚠️ Не удалось отправить уведомление админу: {e}")
+    try:
+        response = await bot.api.messages.send(
+            chat_id=CHAT_ID - 2000000000, 
+            message=chat_text, 
+            keyboard=kb_chat.get_json(),
+            random_id=0
+        )
+        
+        # СОХРАНЯЕМ ID СООБЩЕНИЯ В БАЗУ, ЧТОБЫ МЕНЯТЬ СЧЕТЧИК
+        if isinstance(response, list) and len(response) > 0:
+            cmid = response[0].conversation_message_id
+            session = get_session()
+            ev = session.query(Event).filter_by(id=event.id).first()
+            if ev:
+                ev.vk_post_cmid = cmid
+                session.commit()
+            session.close()
+            
+    except Exception as e:
+        print(f"⚠️ Ошибка при отправке в чат: {e}")
+    
 
 
 @bot.on.message(

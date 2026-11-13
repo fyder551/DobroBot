@@ -18,15 +18,11 @@ def get_main_menu_keyboard(role: str = "volunteer") -> str:
     kb.add(Text("📝 Мои отклики"), color=KeyboardButtonColor.SECONDARY)
     kb.row()
 
-    if role in ("organizer", "admin"):
+    if role == "organizer":
         kb.add(Text("➕ Создать мероприятие"), color=KeyboardButtonColor.POSITIVE)
         kb.add(
             Text("📊 Мои мероприятия"), color=KeyboardButtonColor.SECONDARY
         )  # ← Новая кнопка
-        kb.row()
-
-    if role == "admin":
-        kb.add(Text("🔔 Модерация"), color=KeyboardButtonColor.PRIMARY)
         kb.row()
 
     kb.add(Text("👤 Профиль"), color=KeyboardButtonColor.SECONDARY)

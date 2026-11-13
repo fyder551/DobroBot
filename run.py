@@ -8,11 +8,11 @@ truststore.inject_into_ssl()
 from app.bot_instance import bot  # noqa: E402
 from app.database.db import init_db  # noqa: E402
 
+# ВОТ ЭТИ СТРОКИ ЗАГРУЖАЮТ ОБРАБОТЧИКИ (ИХ НЕЛЬЗЯ УДАЛЯТЬ!)
 from app.handlers import start  # noqa: E402, F401
 from app.handlers import menu  # noqa: E402, F401
 from app.handlers import settings  # noqa: E402, F401
 from app.handlers import create  # noqa: E402, F401
-from app.handlers import admin  # noqa: E402, F401
 from app.handlers import responses  # noqa: E402, F401
 from app.handlers import my_events  # noqa: E402, F401
 

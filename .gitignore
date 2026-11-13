@@ -21,3 +21,5 @@ bot.db
 *.swp
 
 .vkbottle/
+
+*.exe
