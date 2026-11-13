@@ -18,39 +18,46 @@
     <div id="users-list"></div>
 
     <script>
-        // Получаем event_id из параметров URL (ВК передает его автоматически)
-        const urlParams = new URLSearchParams(window.location.search);
-        const eventId = urlParams.get('event_id');
+    // Универсальный поиск event_id (и в ?, и в #)
+    const urlParams = new URLSearchParams(window.location.search);
+    let eventId = urlParams.get('event_id');
 
-        if (!eventId) {
-            document.getElementById('event-title').innerText = "Ошибка: ID мероприятия не найден";
-        } else {
-            // Запрашиваем данные у нашего Python API
-            fetch(`/api/event/${eventId}/users`)
-                .then(res => res.json())
-                .then(data => {
-                    document.getElementById('event-title').innerText = data.title;
-                    const list = document.getElementById('users-list');
-                    
-                    if (data.users.length === 0) {
-                        list.innerHTML = "<p>Пока никто не записался 😢</p>";
-                        return;
-                    }
+    if (!eventId) {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        eventId = hashParams.get('event_id');
+    }
 
-                    data.users.forEach((user, index) => {
-                        list.innerHTML += `
-                            <div class="user-card">
-                                <div class="avatar">${user.name[0]}</div>
-                                <div>${index + 1}. ${user.name}</div>
-                            </div>
-                        `;
-                    });
-                })
-                .catch(err => {
-                    document.getElementById('event-title').innerText = "Ошибка загрузки данных";
-                    console.error(err);
+    if (!eventId) {
+        document.getElementById('event-title').innerText = "Ошибка: ID мероприятия не найден";
+    } else {
+        // Запрашиваем данные у Python API
+        fetch(`/api/event/${eventId}/users`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('event-title').innerText = data.title;
+                document.getElementById('event-subtitle').innerText = `Всего записалось: ${data.users.length} / ${data.max_volunteers}`;
+                
+                const list = document.getElementById('users-list');
+                
+                if (data.users.length === 0) {
+                    list.innerHTML = "<p style='text-align:center; color:#888;'>Пока никто не записался 😢</p>";
+                    return;
+                }
+
+                data.users.forEach((user, index) => {
+                    list.innerHTML += `
+                        <div class="user-card">
+                            <div class="avatar">${user.name[0]}</div>
+                            <div>${index + 1}. ${user.name}</div>
+                        </div>
+                    `;
                 });
-        }
-    </script>
+            })
+            .catch(err => {
+                document.getElementById('event-title').innerText = "Ошибка загрузки данных";
+                console.error(err);
+            });
+    }
+</script>
 </body>
 </html>
