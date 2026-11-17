@@ -13,74 +13,68 @@ from vkbottle.bot import Message
 async def join_chat_callback(event: MessageEvent):
     try:
         user = get_user_by_vk_id(event.user_id)
+        
+        # --- АВТОРЕГИСТРАЦИЯ ---
         if not user:
-            return
+            try:
+                users_info = await bot.api.users.get(user_ids=event.user_id)
+                if users_info:
+                    vk_user = users_info[0]
+                    gender = "male" if vk_user.sex == 2 else ("female" if vk_user.sex == 1 else "unknown")
+                    from app.database.crud import get_or_create_user
+                    user = get_or_create_user(
+                        vk_id=event.user_id,
+                        first_name=vk_user.first_name,
+                        last_name=vk_user.last_name or "",
+                        gender=gender
+                    )
+            except Exception as e:
+                logger.error(f"Ошибка авторегистрации: {e}")
+                return
 
         event_id = int(event.payload["id"])
         event_db = get_event_by_id(event_id)
         if not event_db: return
 
-                # --- ПРОВЕРКА ПОЛА (ТОЛЬКО ЕСЛИ ПОЛ ИЗВЕСТЕН) ---
-        if user.gender and user.gender != "unknown":
-            if event_db.gender_required == "male" and user.gender != "male":
-                await event.show_snackbar("❌ Это мероприятие только для парней!")
-                return
-            if event_db.gender_required == "female" and user.gender != "female":
-                await event.show_snackbar("❌ Это мероприятие только для девушек!")
-                return
-        
-        # --- ПРОВЕРКА ЛИМИТА ---
-        current_count = get_event_responses_count(event_id)
-        max_vol_str = str(event_db.max_volunteers).lower()
-        
-        if max_vol_str != "все" and current_count >= int(max_vol_str):
-            await event.show_snackbar("❌ Мест больше нет!")
-            return
-
-        # Записываем в БД
+        # Пытаемся записать в БД
         response = create_response(event_id=event_db.id, user_id=user.id)
         
-        # Если пользователь уже записан (response вернул None)
-        if not response:
-            await event.show_snackbar("ℹ️ Ты уже записался!")
-            return # Выходим, сообщение не трогаем, кнопка остается зеленой
-
-        # Пересчитываем после записи
+        # Считаем актуальное количество записавшихся (в любом случае)
         count = get_event_responses_count(event_id)
 
-        # Формируем текст
-        vol_text = "👥 Нужны все!" if max_vol_str == "все" else f"👥 Нужны {event_db.max_volunteers} человек"
-        chat_text = (
-            f"📌 {event_db.title}\n\n"
-            f"📅 Дата: {event_db.date.strftime('%d.%m')} с {event_db.start_time.strftime('%H:%M')} до {event_db.end_time.strftime('%H:%M')}\n"
-            f"📍 Место: {event_db.location}\n"
-            f"{vol_text}\n\n"
-            f"📝 Описание:\n{event_db.description}"
-        )
-        if event_db.bonus_info: chat_text += f"\n\n🎁 Бонусы: {event_db.bonus_info}"
-        if event_db.chat_link: chat_text += f"\n🔗 Чат: {event_db.chat_link}"
-
-                # --- ФОРМИРУЕМ КНОПКИ ---
-        counter_text = f"{count}" if max_vol_str == "все" else f"{count}/{event_db.max_volunteers}"
-        app_link = f"https://vk.com/app54895625#event_id={event_db.id}"
-        
-        is_full = max_vol_str != "все" and count >= int(max_vol_str)
-        
-        if is_full:
-            kb = (
-                Keyboard(inline=True)
-                .add(Callback("❌ Мест нет", payload={"cmd": "noop"}), color=KeyboardButtonColor.NEGATIVE)
-                .add(OpenLink(app_link, label=f"👥 Список ({counter_text})"), color=KeyboardButtonColor.SECONDARY)
-            )
+        # Показываем окошко пользователю
+        if not response:
+            await event.show_snackbar(f"ℹ️ Ты уже записался! Всего: {count}")
         else:
+            await event.show_snackbar(f"✅ Успешно! Всего: {count}")
+
+        # --- ОБНОВЛЯЕМ СООБЩЕНИЕ (ДАЖЕ ЕСЛИ УЖЕ ЗАПИСАН) ---
+        try:
+            # 1. Текст кнопки (умный счетчик)
+            if str(event_db.max_volunteers).lower() == "все":
+                btn_text = f"👥 Список ({count}/все)"
+            else:
+                btn_text = f"👥 Список ({count}/{event_db.max_volunteers})"
+            
+            # 2. Ссылка на Mini App
+            app_link = f"https://vk.com/app54895625?vk_ref={event.id}"
+            
+            # 3. Новая клавиатура
             kb = (
                 Keyboard(inline=True)
                 .add(Callback("✅ Я пойду", payload={"cmd": "join_chat", "id": str(event_db.id)}), color=KeyboardButtonColor.POSITIVE)
-                .add(OpenLink(app_link, label=f"👥 Список ({counter_text})"), color=KeyboardButtonColor.SECONDARY)
+                .add(OpenLink(app_link, btn_text), color=KeyboardButtonColor.SECONDARY)
             )
 
-        # Редактируем сообщение
-        try:
+            # 4. Формируем текст сообщения (без дублирования счетчика)
+            chat_text = (
+                f"📌 {event_db.title}\n\n"
+                f"📅 Дата: {event_db.date.strftime('%d.%m')} с {event_db.start_time.strftime('%H:%M')} до {event_db.end_time.strftime('%H:%M')}\n"
+                f"📍 Место: {event_db.location}\n"
+                f"📝 Описание:\n{event_db.description}"
+            )
+
+            # 5. Редактируем сообщение (берем ID прямо из события)
             await bot.api.messages.edit(
                 peer_id=event.peer_id,
                 cmid=event.conversation_message_id,
@@ -88,16 +82,15 @@ async def join_chat_callback(event: MessageEvent):
                 message=chat_text,
                 keyboard=kb.get_json()
             )
-            logger.info(f"✅ Сообщение обновлено. Записалось: {count}")
-        except Exception as e:
-            logger.error(f"❌ Ошибка редактирования: {e}")
+            logger.info(f"✅ Кнопка обновлена. Записалось: {count}")
 
-        # Показываем окошко успеха (видит только нажавший)
-        await event.show_snackbar(f"✅ Успешно! Всего: {count}")
+        except Exception as e:
+            logger.error(f"❌ ВК НЕ ДАЛ ОБНОВИТЬ КНОПКУ: {e}")
 
     except Exception as e:
         logger.error(f"Критическая ошибка в join_chat: {e}")
 
+        
 # Обработчик для серой кнопки
 @bot.on.raw_event(GroupEventType.MESSAGE_EVENT, MessageEvent, payload_contains={"cmd": "noop"})
 async def noop_handler(event: MessageEvent):

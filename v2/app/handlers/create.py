@@ -405,16 +405,14 @@ async def process_publish(message: Message):
         NGROK_URL = "https://brought-porous-cheek.ngrok-free.dev"
         
                 # Формируем ссылку
-        app_link = f"https://vk.com/app54895625?event_id={event.id}"
+        app_link = f"https://vk.com/app54895625?vk_ref={event.id}"
 
         # ДВЕ КНОПКИ: ОТКЛИК И СПИСОК
         kb = (
             Keyboard(inline=True)
             .add(Callback("✅ Я пойду", payload={"cmd": "join_chat", "id": str(event.id)}), color=KeyboardButtonColor.POSITIVE)
-            # ВОТ ЗДЕСЬ ИСПОЛЬЗУЕМ link, А НЕ url!
-            .add(OpenLink(app_link, label=f"👥 Список (0/{event.max_volunteers})"), color=KeyboardButtonColor.SECONDARY)
+            .add(OpenLink(app_link, f"👥 Список (0/{event.max_volunteers})"), color=KeyboardButtonColor.SECONDARY)
         )
-
         # Отправляем в чат
         await bot.api.messages.send(
             peer_id=CHAT_ID,

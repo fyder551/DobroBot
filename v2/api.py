@@ -20,18 +20,32 @@ def get_users(event_id):
     responses = get_event_responses(event_id)
     users = []
     
+    # Собираем ID всех участников для запроса аватарок
+    user_ids = [r.user.vk_id for r in responses if r.user]
+    avatars = {}
+    
+    if user_ids:
+        import requests
+        from app.config import VK_TOKEN
+        # Запрашиваем аватарки (photo_100) одним запросом к ВК
+        vk_url = f"https://api.vk.com/method/users.get?user_ids={','.join(map(str, user_ids))}&fields=photo_100&access_token={VK_TOKEN}&v=5.199"
+        try:
+            vk_res = requests.get(vk_url).json()
+            avatars = {str(u['id']): u.get('photo_100', '') for u in vk_res.get('response', [])}
+        except Exception as e:
+            print(f"Ошибка получения аватарок: {e}")
+
     for r in responses:
         if r.user:
             name = f"{r.user.first_name} {r.user.last_name or ''}".strip()
-            users.append({"id": r.user.vk_id, "name": name})
+            users.append({
+                "id": r.user.vk_id, # ID профиля нужен для ссылки
+                "name": name,
+                "avatar": avatars.get(str(r.user.vk_id), "")
+            })
             
     return jsonify({
         "title": event.title,
         "max_volunteers": event.max_volunteers,
         "users": users
     })
-
-if __name__ == '__main__':
-    # Render сам передаст нужный порт в переменную PORT
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
