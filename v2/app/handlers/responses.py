@@ -57,7 +57,7 @@ async def join_chat_callback(event: MessageEvent):
             else:
                 btn_text = f"👥 Список ({count}/{event_db.max_volunteers})"
 
-            app_link = f"https://vk.com/app54895625?vk_ref={event_db.id}"
+            app_link = f"https://vk.com/app54895625#event_id={event.id}"
             
             kb = (
                 Keyboard(inline=True)
