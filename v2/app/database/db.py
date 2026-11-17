@@ -9,13 +9,19 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
-    # Для Render (PostgreSQL)
+    # 1. Заменяем старый протокол, если он есть
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    
+    # 2. ВАЖНО: Говорим SQLAlchemy использовать psycopg (3 версию), а не psycopg2
+    if DATABASE_URL.startswith("postgresql://"):
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+        
     engine = create_engine(DATABASE_URL)
-    db_host = DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else DATABASE_URL
-    print(f"✅ Бот подключен к базе: {db_host}")
+    print("✅ Бот подключен к облачной базе PostgreSQL (psycopg 3)")
 else:
+    # Для локальной разработки (SQLite)
+    # ... (остальной код для SQLite оставляем без изменений) ...
     # Для локальной разработки (SQLite)
     DATABASE_URL = "sqlite:///v2_bot.db"
     engine = create_engine(
