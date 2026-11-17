@@ -405,8 +405,7 @@ async def process_publish(message: Message):
         NGROK_URL = "https://brought-porous-cheek.ngrok-free.dev"
         
                 # Формируем ссылку
-        app_link = f"https://vk.com/app54895625?vk_ref={event.id}"
-
+        app_link = f"https://vk.com/app54895625#event_id={event.id}"
         # ДВЕ КНОПКИ: ОТКЛИК И СПИСОК
         kb = (
     Keyboard(inline=True)

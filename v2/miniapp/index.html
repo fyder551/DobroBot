@@ -25,40 +25,38 @@
     </div>
     <div id="users-list"></div>
 
-            <script>
+                <script>
+        // 1. Инициализация (убирает спиннер)
         vkBridge.send('VKWebAppInit');
 
-        async function init() {
-            let eventId = null;
-            const currentUrl = window.location.href;
+        // 2. Максимально простой поиск ID
+        function getEventId() {
+            // Ищем в хеше (после #)
+            const hash = window.location.hash.substring(1);
+            const hashParams = new URLSearchParams(hash);
+            if (hashParams.get('event_id')) return hashParams.get('event_id');
 
-            // 1. Пытаемся найти в URL (на случай ПК)
-            const match = currentUrl.match(/(?:vk_ref|event_id)=(\d+)/);
-            if (match && match[1]) {
-                eventId = match[1];
-            }
+            // Ищем в обычных параметрах (после ?)
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('event_id')) return urlParams.get('event_id');
 
-            // 2. Спрашиваем у моста ВК (работает и на ПК, и на мобилках)
-            if (!eventId) {
-                try {
-                    const launchParams = await vkBridge.send('VKWebAppGetLaunchParams');
-                    console.log("ВК передал параметры:", launchParams);
-                    if (launchParams.vk_ref) {
-                        eventId = launchParams.vk_ref;
-                    }
-                } catch (e) {
-                    console.error("Ошибка моста ВК:", e);
-                }
-            }
+            // Если ВК как-то сломал URL, просто ищем текст "event_id=" в ссылке
+            const match = window.location.href.match(/event_id=(\d+)/);
+            if (match) return match[1];
 
-            // 3. Если ничего не нашли — выводим отладку
+            return null;
+        }
+
+        async function loadData() {
+            const eventId = getEventId();
+            
             if (!eventId) {
                 document.getElementById('event-title').innerText = "Ошибка: ID не найден";
-                document.getElementById('event-subtitle').innerText = "URL: " + currentUrl;
+                // Выводим ссылку на экран, чтобы понять, что видит ВК
+                document.getElementById('event-subtitle').innerText = "URL: " + window.location.href;
                 return;
             }
 
-            // 4. Загружаем данные
             fetch(`/api/event/${eventId}/users`)
                 .then(res => {
                     if (!res.ok) throw new Error("404");
@@ -97,7 +95,12 @@
             vkBridge.send('VKWebAppOpenProfile', { user_id: vkId }).catch(console.error);
         }
 
-        init();
+        loadApp();
+
+        function loadApp() {
+            // Небольшая задержка, чтобы ВК успел передать данные в iframe
+            setTimeout(loadData, 100);
+        }
     </script>
 </body>
 </html>
