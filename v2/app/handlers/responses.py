@@ -50,22 +50,32 @@ async def join_chat_callback(event: MessageEvent):
 
         # --- ОБНОВЛЯЕМ СООБЩЕНИЕ (ДАЖЕ ЕСЛИ УЖЕ ЗАПИСАН) ---
         try:
-            # 1. Текст кнопки (умный счетчик)
-                        # Умный текст для кнопки (чтобы не было "0/все", если лимита нет)
+            # Умный текст для кнопки
             if str(event_db.max_volunteers).lower() == "все":
                 btn_text = f"👥 Список ({count}/все)"
             else:
                 btn_text = f"👥 Список ({count}/{event_db.max_volunteers})"
-
-            app_link = f"https://vk.com/app54895625#event_id={event.id}"
+            
+            # Ссылка через решетку
+            app_link = f"https://vk.com/app54895625#event_id={event_db.id}"
             
             kb = (
                 Keyboard(inline=True)
                 .add(Callback("✅ Я пойду", payload={"cmd": "join_chat", "id": str(event_db.id)}), color=KeyboardButtonColor.POSITIVE)
                 .add(OpenLink(app_link, btn_text), color=KeyboardButtonColor.SECONDARY)
             )
-            
-            # ... (дальше идет вызов messages.edit, его не трогаем)
+
+            # ВАЖНО: вызываем edit с cmid
+            await bot.api.messages.edit(
+                peer_id=event.peer_id,
+                cmid=event.conversation_message_id,
+                group_id=GROUP_ID,
+                message=chat_text, # текстовое описание мероприятия
+                keyboard=kb.get_json()
+            )
+            logger.info(f"✅ Сообщение обновлено. Записалось: {count}")
+        except Exception as e:
+            logger.error(f"❌ ВК НЕ ДАЛ ОБНОВИТЬ КНОПКУ: {e}")
 
             # 4. Формируем текст сообщения (без дублирования счетчика)
             chat_text = (
