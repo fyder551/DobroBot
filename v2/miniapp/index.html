@@ -25,34 +25,38 @@
     </div>
     <div id="users-list"></div>
 
-    <script>
-        // Безопасный поиск ID мероприятия
-                async function getEventId() {
-            // 1. Ищем в URL (на ПК)
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('vk_ref')) return urlParams.get('vk_ref');
-            if (urlParams.get('event_id')) return urlParams.get('event_id');
-            
-            // 2. Ищем в хеше
-            const hashParams = new URLSearchParams(window.location.hash.substring(1));
-            if (hashParams.get('vk_ref')) return hashParams.get('vk_ref');
-            if (hashParams.get('event_id')) return hashParams.get('event_id');
+        <script>
+        // Инициализация ВК
+        vkBridge.send('VKWebAppInit');
 
-            // 3. Ищем в параметрах запуска ВК (на мобилках)
+        // Самая надежная функция поиска ID (ищет и в ?, и в #, и в параметрах ВК)
+        async function getEventId() {
+            const url = window.location.href;
+            
+            // Ищем vk_ref=8 или event_id=8 в любом месте ссылки
+            const match = url.match(/(?:vk_ref|event_id)=(\d+)/);
+            if (match && match[1]) {
+                console.log("ID найден в URL:", match[1]);
+                return match[1];
+            }
+
+            // Если в ссылке нет, спрашиваем у ВК (для мобилок)
             try {
                 const launchParams = await vkBridge.send('VKWebAppGetLaunchParams');
-                if (launchParams.vk_ref) return launchParams.vk_ref;
-            } catch (e) {}
+                if (launchParams.vk_ref) {
+                    console.log("ID найден в VK Bridge:", launchParams.vk_ref);
+                    return launchParams.vk_ref;
+                }
+            } catch (e) {
+                console.error("Ошибка VK Bridge:", e);
+            }
+            
             return null;
-        }
-
-        // Функция открытия профиля ВК (без перехода в браузер)
-        function openProfile(vkId) {
-            vkBridge.send('VKWebAppOpenProfile', { user_id: vkId }).catch(console.error);
         }
 
         async function loadData() {
             const eventId = await getEventId();
+            
             if (!eventId) {
                 document.getElementById('event-title').innerText = "Ошибка: ID мероприятия не найден";
                 return;
@@ -79,7 +83,6 @@
                             ? `<img src="${user.avatar}" class="avatar" alt="">`
                             : `<div class="avatar">${user.name[0]}</div>`;
 
-                        // Вешаем клик на всю карточку (или только на имя)
                         list.innerHTML += `
                             <div class="user-card" onclick="openProfile(${user.id})">
                                 ${avatarHtml}
@@ -91,6 +94,10 @@
                 .catch(err => {
                     document.getElementById('event-title').innerText = "Ошибка загрузки данных";
                 });
+        }
+
+        function openProfile(vkId) {
+            vkBridge.send('VKWebAppOpenProfile', { user_id: vkId }).catch(console.error);
         }
 
         loadData();
