@@ -51,20 +51,21 @@ async def join_chat_callback(event: MessageEvent):
         # --- ОБНОВЛЯЕМ СООБЩЕНИЕ (ДАЖЕ ЕСЛИ УЖЕ ЗАПИСАН) ---
         try:
             # 1. Текст кнопки (умный счетчик)
+                        # Умный текст для кнопки (чтобы не было "0/все", если лимита нет)
             if str(event_db.max_volunteers).lower() == "все":
                 btn_text = f"👥 Список ({count}/все)"
             else:
                 btn_text = f"👥 Список ({count}/{event_db.max_volunteers})"
+
+            app_link = f"https://vk.com/app54895625?vk_ref={event_db.id}"
             
-            # 2. Ссылка на Mini App
-            app_link = f"https://vk.com/app54895625?vk_ref={event.id}"
-            
-            # 3. Новая клавиатура
             kb = (
                 Keyboard(inline=True)
                 .add(Callback("✅ Я пойду", payload={"cmd": "join_chat", "id": str(event_db.id)}), color=KeyboardButtonColor.POSITIVE)
                 .add(OpenLink(app_link, btn_text), color=KeyboardButtonColor.SECONDARY)
             )
+            
+            # ... (дальше идет вызов messages.edit, его не трогаем)
 
             # 4. Формируем текст сообщения (без дублирования счетчика)
             chat_text = (

@@ -409,10 +409,10 @@ async def process_publish(message: Message):
 
         # ДВЕ КНОПКИ: ОТКЛИК И СПИСОК
         kb = (
-            Keyboard(inline=True)
-            .add(Callback("✅ Я пойду", payload={"cmd": "join_chat", "id": str(event.id)}), color=KeyboardButtonColor.POSITIVE)
-            .add(OpenLink(app_link, f"👥 Список (0/{event.max_volunteers})"), color=KeyboardButtonColor.SECONDARY)
-        )
+    Keyboard(inline=True)
+    .add(Callback("✅ Я пойду", payload={"cmd": "join_chat", "id": str(event.id)}), color=KeyboardButtonColor.POSITIVE)
+    .add(OpenLink(app_link, f"👥 Список (0/{event.max_volunteers})"), color=KeyboardButtonColor.SECONDARY)
+)
         # Отправляем в чат
         await bot.api.messages.send(
             peer_id=CHAT_ID,

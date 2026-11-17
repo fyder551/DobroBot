@@ -27,13 +27,18 @@
 
     <script>
         // Безопасный поиск ID мероприятия
-        async function getEventId() {
+                async function getEventId() {
+            // 1. Ищем в URL (на ПК)
             const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('vk_ref')) return urlParams.get('vk_ref');
             if (urlParams.get('event_id')) return urlParams.get('event_id');
             
+            // 2. Ищем в хеше
             const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            if (hashParams.get('vk_ref')) return hashParams.get('vk_ref');
             if (hashParams.get('event_id')) return hashParams.get('event_id');
 
+            // 3. Ищем в параметрах запуска ВК (на мобилках)
             try {
                 const launchParams = await vkBridge.send('VKWebAppGetLaunchParams');
                 if (launchParams.vk_ref) return launchParams.vk_ref;
