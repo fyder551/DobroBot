@@ -25,32 +25,28 @@
     </div>
     <div id="users-list"></div>
 
-        <script>
-        // Инициализация ВК
+            <script>
         vkBridge.send('VKWebAppInit');
 
-        // Самая надежная функция поиска ID (ищет и в ?, и в #, и в параметрах ВК)
         async function getEventId() {
+            // 1. Пытаемся взять из URL (ищем любые цифры после vk_ref= или event_id=)
             const url = window.location.href;
-            
-            // Ищем vk_ref=8 или event_id=8 в любом месте ссылки
             const match = url.match(/(?:vk_ref|event_id)=(\d+)/);
             if (match && match[1]) {
-                console.log("ID найден в URL:", match[1]);
                 return match[1];
             }
 
-            // Если в ссылке нет, спрашиваем у ВК (для мобилок)
+            // 2. Если в URL нет, спрашиваем у моста ВК
             try {
                 const launchParams = await vkBridge.send('VKWebAppGetLaunchParams');
                 if (launchParams.vk_ref) {
-                    console.log("ID найден в VK Bridge:", launchParams.vk_ref);
                     return launchParams.vk_ref;
                 }
             } catch (e) {
-                console.error("Ошибка VK Bridge:", e);
+                console.error("VK Bridge Error:", e);
             }
             
+            // 3. Если вообще ничего не нашли, выводим отладочную инфу на экран!
             return null;
         }
 
@@ -58,7 +54,9 @@
             const eventId = await getEventId();
             
             if (!eventId) {
-                document.getElementById('event-title').innerText = "Ошибка: ID мероприятия не найден";
+                // ВЫВОДИМ URL НА ЭКРАН, ЧТОБЫ ПОНЯТЬ, ЧТО ВИДИТ САЙТ
+                document.getElementById('event-title').innerText = "Ошибка: ID не найден";
+                document.getElementById('event-subtitle').innerText = "Текущий URL: " + window.location.href;
                 return;
             }
 
@@ -92,7 +90,7 @@
                     });
                 })
                 .catch(err => {
-                    document.getElementById('event-title').innerText = "Ошибка загрузки данных";
+                    document.getElementById('event-title').innerText = "Ошибка загрузки данных (404)";
                 });
         }
 
