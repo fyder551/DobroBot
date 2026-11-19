@@ -1,45 +1,39 @@
-name: QA Pipeline 
-
+name: QA Pipeline
 
 on:
   push:
-    branches: [ "main" ] # При каждом пуше в ветку main
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ] # И при создании пулл-реквеста
+    branches: [ "main" ]
 
 jobs:
   build:
-    runs-on: ubuntu-latest # GitHub выделяет сервер
+    runs-on: ubuntu-latest
 
     steps:
-    # 1. Скачиваем твой код на сервер GitHub
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    # 2. Устанавливаем Python
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-    # 3. Устанавливаем библиотеки
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install flake8 black pytest pytest-asyncio pytest-cov
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r v2/requirements.txt
+          pip install flake8 black pytest pytest-asyncio pytest-cov
 
-    # 4. Проверяем стиль кода (Линтер)
-    - name: Lint with flake8
-      run: |
-        flake8 app/ run.py
+      - name: Lint with flake8
+        run: |
+          flake8 v2/app/ v2/run.py
 
-    # 5. Проверяем форматирование
-    - name: Check formatting with black
-      run: |
-        black --check app/ run.py
+      - name: Check formatting with black
+        run: |
+          black --check v2/app/ v2/run.py
 
-    # 6. Запускаем тесты (Самое главное!)
-    - name: Test with pytest
-      run: |
-        pytest tests/ -v --cov=app
+      - name: Test with pytest
+        working-directory: v2
+        run: |
+          pytest tests/ -v --cov=app
