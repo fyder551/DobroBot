@@ -1,5 +1,6 @@
 from vkbottle import BaseStateGroup
 
+
 class CreateEventState(BaseStateGroup):
     TITLE = "title"
     MAX_VOLUNTEERS = "max_volunteers"
@@ -13,6 +14,7 @@ class CreateEventState(BaseStateGroup):
     CHAT_LINK = "chat_link"
     CONFIRMATION = "confirmation"
     CHOOSING_TYPE = "choosing_type"
+
 
 class AnnouncementState(BaseStateGroup):
     PHOTO = "ann_photo"

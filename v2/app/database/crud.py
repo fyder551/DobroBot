@@ -5,8 +5,8 @@ from sqlalchemy.orm import joinedload
 from app.database.db import get_session
 from app.database.models import User, Event, Response
 
-
 # ==================== ПОЛЬЗОВАТЕЛИ ====================
+
 
 def get_user_by_vk_id(vk_id: int) -> Optional[User]:
     """Ищет пользователя по его VK ID."""
@@ -17,17 +17,16 @@ def get_user_by_vk_id(vk_id: int) -> Optional[User]:
         session.close()
 
 
-def get_or_create_user(vk_id: int, first_name: str, last_name: str, gender: str) -> User:
+def get_or_create_user(
+    vk_id: int, first_name: str, last_name: str, gender: str
+) -> User:
     """Возвращает пользователя из БД или создает нового, если его нет."""
     session = get_session()
     try:
         user = session.query(User).filter_by(vk_id=vk_id).first()
         if not user:
             user = User(
-                vk_id=vk_id,
-                first_name=first_name,
-                last_name=last_name,
-                gender=gender
+                vk_id=vk_id, first_name=first_name, last_name=last_name, gender=gender
             )
             session.add(user)
             session.commit()
@@ -38,6 +37,7 @@ def get_or_create_user(vk_id: int, first_name: str, last_name: str, gender: str)
 
 
 # ==================== МЕРОПРИЯТИЯ ====================
+
 
 def create_event(
     author_id: int,
@@ -99,15 +99,20 @@ def update_event_cmid(event_id: int, cmid: int) -> None:
 
 # ==================== ОТКЛИКИ ====================
 
+
 def create_response(event_id: int, user_id: int) -> Optional[Response]:
     """Создает отклик на мероприятие. Если уже есть — возвращает None."""
     session = get_session()
     try:
         # Проверяем, не записан ли уже
-        existing = session.query(Response).filter_by(event_id=event_id, user_id=user_id).first()
+        existing = (
+            session.query(Response)
+            .filter_by(event_id=event_id, user_id=user_id)
+            .first()
+        )
         if existing:
             return None
-        
+
         response = Response(event_id=event_id, user_id=user_id, attended=False)
         session.add(response)
         session.commit()
@@ -130,6 +135,11 @@ def get_event_responses(event_id: int):
     """Возвращает список откликов с подгруженными данными пользователей."""
     session = get_session()
     try:
-        return session.query(Response).options(joinedload(Response.user)).filter_by(event_id=event_id).all()
+        return (
+            session.query(Response)
+            .options(joinedload(Response.user))
+            .filter_by(event_id=event_id)
+            .all()
+        )
     finally:
         session.close()

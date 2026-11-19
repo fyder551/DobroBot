@@ -2,7 +2,12 @@ from vkbottle.bot import Message
 from app.bot_instance import bot
 from app.config import GROUP_ID
 from app.database.crud import get_or_create_user
-from app.keyboards.main_menu import get_subscription_keyboard, get_clear_keyboard,get_main_menu_keyboard
+from app.keyboards.main_menu import (
+    get_subscription_keyboard,
+    get_clear_keyboard,
+    get_main_menu_keyboard,
+)
+
 
 async def check_and_greet(message: Message):
     """Функция проверки подписки и приветствия (чтобы не дублировать код)."""
@@ -10,36 +15,37 @@ async def check_and_greet(message: Message):
 
     # 1. ПРОВЕРКА ПОДПИСКИ
     try:
-        is_member = await bot.api.groups.is_member(
-            group_id=GROUP_ID, 
-            user_id=user_id
-        )
-        
+        is_member = await bot.api.groups.is_member(group_id=GROUP_ID, user_id=user_id)
+
         if is_member == 0:
             # Если НЕ подписан — показываем текст с кнопкой
             await message.answer(
                 "❌ Чтобы пользоваться ботом, нужно сначала вступить в наше сообщество!\n\n"
                 "👉 Ссылка на группу: https://vk.com/club67512708\n\n"
                 "После вступления нажми на кнопку ниже 👇",
-                keyboard=get_subscription_keyboard()
+                keyboard=get_subscription_keyboard(),
             )
             return
     except Exception as e:
         print(f"⚠️ Ошибка при проверке подписки: {e}")
 
-     # 2. ПОЛУЧАЕМ ДАННЫЕ ИЗ ВК
+    # 2. ПОЛУЧАЕМ ДАННЫЕ ИЗ ВК
     try:
         users_info = await bot.api.users.get(user_ids=user_id)
         if users_info:
             vk_user = users_info[0]
             first_name = vk_user.first_name
             last_name = vk_user.last_name  # <-- ДОБАВИЛИ ПОЛУЧЕНИЕ ФАМИЛИИ
-            
+
             # Определяем пол
-            gender = "male" if vk_user.sex == 2 else ("female" if vk_user.sex == 1 else "unknown")
+            gender = (
+                "male"
+                if vk_user.sex == 2
+                else ("female" if vk_user.sex == 1 else "unknown")
+            )
         else:
             first_name = "друг"
-            last_name = "" # <-- ДОБАВИЛИ ЗАГЛУШКУ
+            last_name = ""  # <-- ДОБАВИЛИ ЗАГЛУШКУ
             gender = "unknown"
     except Exception as e:
         print(f"⚠️ Ошибка при получении данных: {e}")
@@ -49,10 +55,10 @@ async def check_and_greet(message: Message):
 
     # 3. СОХРАНЯЕМ В БАЗУ (передаем last_name)
     get_or_create_user(
-        vk_id=user_id, 
-        first_name=first_name, 
-        last_name=last_name, # <-- ДОБАВИЛИ ПЕРЕДАЧУ
-        gender=gender
+        vk_id=user_id,
+        first_name=first_name,
+        last_name=last_name,  # <-- ДОБАВИЛИ ПЕРЕДАЧУ
+        gender=gender,
     )
 
     # 4. ПРИВЕТСТВИЕ (Очищаем клавиатуру)
@@ -60,7 +66,7 @@ async def check_and_greet(message: Message):
         f"Привет, {first_name}! 👋\n\n"
         f"Я Добробот v2.0 — помощник волонтёров ВГУИТ.\n"
         f"Рад видеть тебя в нашей команде!",
-        keyboard=get_main_menu_keyboard() # <-- Выдаем меню
+        keyboard=get_main_menu_keyboard(),  # <-- Выдаем меню
     )
 
 
@@ -68,6 +74,7 @@ async def check_and_greet(message: Message):
 @bot.on.message(text=["/start", "начать", "Начать", "start", "Start"])
 async def start_handler(message: Message):
     await check_and_greet(message)
+
 
 # Обработчик кнопки "Я подписался"
 @bot.on.message(text=["✅ Я подписался!"])
