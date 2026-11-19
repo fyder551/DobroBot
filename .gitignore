@@ -8,8 +8,12 @@ __pycache__/
 .env
 *.env
 
-# БАЗА ДАННЫХ (нельзя загружать на GitHub)
+# Базы данных
 bot.db
+v2_bot.db
+*.db
+*.db-wal
+*.db-shm
 
 # Логи и временные файлы
 *.log

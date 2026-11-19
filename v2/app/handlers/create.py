@@ -1,13 +1,13 @@
 import re
 from datetime import datetime
 
-from vkbottle import Keyboard, Text, KeyboardButtonColor, Callback, OpenLink
+from vkbottle import Keyboard, Text, KeyboardButtonColor, Callback
 from vkbottle.bot import Message
 from app.database.crud import get_session
 from app.database.models import Event
 
 from app.bot_instance import bot
-from app.database.crud import get_user_by_vk_id, create_event,update_event_cmid
+from app.database.crud import get_user_by_vk_id, create_event
 from app.keyboards.main_menu import get_cancel_keyboard, get_skip_keyboard, get_main_menu_keyboard
 from app.states import CreateEventState,AnnouncementState
 from app.config import CHAT_ID, GROUP_ID
@@ -401,17 +401,13 @@ async def process_publish(message: Message):
         if event.bonus_info: chat_text += f"\n\n🎁 Бонусы: {event.bonus_info}"
         if event.chat_link: chat_text += f"\n🔗 Чат: {event.chat_link}"
 
-        # Твоя ссылка от ngrok (без слэша на конце) ДВЕ КНОПКИ: ОТКЛИК И СЧЕТЧИК
-        NGROK_URL = "https://brought-porous-cheek.ngrok-free.dev"
-        
-                # Формируем ссылку
-        app_link = f"https://vk.com/app54895625#event_id={event.id}"
-        # ДВЕ КНОПКИ: ОТКЛИК И СПИСОК
+               # ДВЕ КНОПКИ: ОТКЛИК И СЧЁТЧИК-СПИСОК
         kb = (
-    Keyboard(inline=True)
-    .add(Callback("✅ Я пойду", payload={"cmd": "join_chat", "id": str(event.id)}), color=KeyboardButtonColor.POSITIVE)
-    .add(OpenLink(app_link, f"👥 Список (0/{event.max_volunteers})"), color=KeyboardButtonColor.SECONDARY)
-)
+            Keyboard(inline=True)
+            .add(Callback("✅ Я пойду", payload={"cmd": "join_chat", "id": str(event.id)}), color=KeyboardButtonColor.POSITIVE)
+            .add(Callback(f"👥 Список (0/{event.max_volunteers})", payload={"cmd": "view_list", "id": str(event.id)}), color=KeyboardButtonColor.SECONDARY)
+        )
+
         # Отправляем в чат
         await bot.api.messages.send(
             peer_id=CHAT_ID,
