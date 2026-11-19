@@ -7,6 +7,8 @@ __pycache__/
 # Файлы настроек и секреты
 .env
 *.env
+v2/.env
+v2/env
 
 # Базы данных
 bot.db
@@ -27,3 +29,6 @@ v2_bot.db
 .vkbottle/
 
 *.exe
+
+v2/drafts/
+v2/miniapp/
